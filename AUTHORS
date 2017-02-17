@@ -20,20 +20,15 @@ Randolf Rotta, BTU Cottbus-Senftenberg
 * basic boot code
 
 Robert Kuban, BTU Cottbus-Senftenberg
+* capabilities: resource inheritance tree
 * communication channels
 * synchronization primitives
 * task scheduling
 * testing framework
-* beginnings of C++ exception handling
+* error handling
 
 Stefan Bonfert, Uni Ulm
-* benchmarks
-
-Tim Naumann, BTU Cottbus-Senftenberg
-* X86 port (32bit)
-* X86 memory management (32bit)
-* clang-based extraction of interface descriptions
-* client/server stub generator for remote method invocations
+* many benchmarks and debugging
 
 Vladimir Nikolov, Uni Ulm
 * booting all hardware threads
@@ -43,6 +38,3 @@ Martin Messer, BTU Cottbus-Senftenberg
 * gem5 port
 * E820 memory table
 * various code cleanups
-
-Zuzana Gabonayova, BTU Cottbus-Senftenberg
-* tracing subsystem and trace analysis

@@ -27,10 +27,20 @@
 
 #include "cpu/CoreLocal.hh"
 #include "util/compiler.hh"
+#include "util/mstring.hh"
 #include <cstdint> // for uint32_t etc
 
 namespace mythos {
   namespace cpu {
+
+    class ITrapHandler
+    {
+    public:
+      virtual ~ITrapHandler() {}
+      virtual void handleTrap() = 0;
+      virtual void handleSyscall() = 0;
+      virtual void saveState() = 0;
+    };
 
     /** Stores a threads execution state for later comeback.
      *
@@ -43,6 +53,7 @@ namespace mythos {
      */
     struct ThreadState
     {
+      ThreadState() { memset(this, 0, sizeof(ThreadState)); }
       uint64_t rip; //< from %rcx, written by the syscall entry point
       uint64_t rflags; //< from %r11, written by the syscall entry point
       uint64_t rsp; //< from %rsp, written by the syscall entry point
@@ -52,7 +63,8 @@ namespace mythos {
       uint64_t r8, r9, r10, r11;
       // interrupt information
       uint64_t irq, error, cr2;
-      uint64_t maySysret; // non-zero if return to user mode can safely use sysret instead of iret
+      uint64_t maySysret; // non-zero if kernel was entered via syscall instead of irq
+      ITrapHandler* handler;
     };
 
     extern CoreLocal<ThreadState*> thread_state SYMBOL("thread_state") KERNEL_CLM_HOT;

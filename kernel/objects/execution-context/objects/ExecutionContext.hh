@@ -29,6 +29,7 @@
 #include <atomic>
 
 #include "cpu/kernel_entry.hh"
+#include "cpu/fpu.hh"
 #include "async/NestedMonitorDelegating.hh"
 #include "objects/IKernelObject.hh"
 #include "objects/ISchedulable.hh"
@@ -48,6 +49,7 @@ namespace mythos {
     : public IKernelObject
     , public ISchedulable
     , public IPortalUser
+    , protected cpu::ITrapHandler
   {
   public:
 
@@ -89,11 +91,13 @@ namespace mythos {
   public: // ISchedulable interface
     bool isReady() const override { return !isBlocked(flags.load()); }
     void resume() override;
-    void handleTrap(cpu::ThreadState* ctx) override;
-    void handleSyscall(cpu::ThreadState* ctx) override;
     optional<void> syscallInvoke(CapPtr portal, CapPtr dest, uint64_t user);
-    void unload() override;
     void semaphoreNotify() override;
+
+  protected: // ITrapHandler interface
+    void handleTrap() override;
+    void handleSyscall() override;
+    void saveState() override;
 
   public: // IPortalUser interface
     optional<CapEntryRef> lookupRef(CapPtr ptr, CapPtrDepth ptrDepth, bool writeable) override;
@@ -148,7 +152,8 @@ namespace mythos {
     /// @todo reference/link to exception handler (portal/endpoint?)
 
     cpu::ThreadState threadState;
-    std::atomic<ISchedulable*>* lastPlace = nullptr;
+    cpu::FpuState fpuState;
+
     IScheduler::handle_t ec_handle = {this};
 
     IInvocation* msg;

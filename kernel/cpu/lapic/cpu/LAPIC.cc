@@ -33,7 +33,7 @@ namespace mythos {
   LAPIC lapic;
 
   void LAPIC::init() {
-    MLOG_INFO(mlog::boot, "initializing local xAPIC");
+    MLOG_DETAIL(mlog::boot, "initializing local xAPIC");
     Register value;
 
     // init the Destination Format Register and the Logical

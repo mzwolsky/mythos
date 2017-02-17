@@ -37,6 +37,7 @@
 #include "cpu/CoreLocal.hh"
 #include "cpu/hwthreadid.hh"
 #include "cpu/ctrlregs.hh"
+#include "cpu/fpu.hh"
 #include "cpu/LAPIC.hh"
 #include "cpu/hwthread_pause.hh"
 #include "boot/memory-layout.h"
@@ -102,6 +103,8 @@ void entry_ap(size_t id)
   mythos::boot::apboot_thread(id);
   MLOG_DETAIL(mlog::boot, "started hardware thread");
 
+  mythos::cpu::FpuState::initCpu();
+
   if (id == mythos::cpu::enumerateHwThreadID(0)) {
     auto res = mythos::boot::load_init(); // start the first application
     OOPS(res);
@@ -122,7 +125,7 @@ void mythos::cpu::syscall_entry_cxx(mythos::cpu::ThreadState* ctx)
   mythos::async::getLocalPlace().enterKernel();
   MLOG_DETAIL(mlog::boot, "user system call", DVAR(ctx->rdi), DVAR(ctx->rsi),
       DVARhex(ctx->rip), DVARhex(ctx->rsp));
-  mythos::handle_syscall(ctx);
+  ctx->handler->handleSyscall();
   runUser();
 }
 
@@ -132,7 +135,7 @@ void mythos::cpu::irq_entry_user(mythos::cpu::ThreadState* ctx)
   MLOG_DETAIL(mlog::boot, "user interrupt", DVAR(ctx->irq), DVAR(ctx->error),
       DVARhex(ctx->rip), DVARhex(ctx->rsp));
   if (ctx->irq<32) {
-    mythos::handle_trap(ctx); // handle traps, exceptions, bugs from user mode
+    ctx->handler->handleTrap(); // handle traps, exceptions, bugs from user mode
   } else {
     // TODO then external and wakeup interrupts
     mythos::lapic.endOfInterrupt();

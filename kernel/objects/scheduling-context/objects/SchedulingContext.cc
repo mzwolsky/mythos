@@ -38,7 +38,7 @@ namespace mythos {
   {
     MLOG_DETAIL(mlog::sched, "unbind", ec);
     readyQueue.remove(ec);
-    preempt(ec); /// @todo race when ec is deleted too early
+    preempt(ec);
   }
 
   void SchedulingContext::ready(handle_t* ec)

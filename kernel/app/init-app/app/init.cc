@@ -123,6 +123,17 @@ void test_Portal()
   MLOG_ERROR(mlog::app, "test_Portal end");
 }
 
+void test_float()
+{
+  MLOG_INFO(mlog::app, "testing user-mode floating point");
+
+  volatile float x = 5.5;
+  volatile float y = 0.5;
+
+  float z = x*y;
+
+  MLOG_INFO(mlog::app, "float z:", int(z), ".", int(1000*(z-float(int(z)))));
+}
 
 int main()
 {
@@ -130,6 +141,7 @@ int main()
   char const end[] = "bye, cruel world!";
   mythos::syscall_debug(str, sizeof(str)-1);
 
+  test_float();
   test_Example();
   test_Portal();
 

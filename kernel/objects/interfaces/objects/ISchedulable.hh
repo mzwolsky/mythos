@@ -25,13 +25,9 @@
  */
 #pragma once
 
-#include "cpu/CoreLocal.hh"
 #include <atomic>
 
 namespace mythos {
-  namespace cpu {
-    struct ThreadState;
-  } // namespace cpu;
 
   class ISchedulable
   {
@@ -53,18 +49,7 @@ namespace mythos {
      */
     virtual void resume() = 0;
 
-    virtual void handleTrap(cpu::ThreadState* ctx) = 0;
-
-    virtual void handleSyscall(cpu::ThreadState* ctx) = 0;
-
-    virtual void unload() = 0;
-
     virtual void semaphoreNotify() = 0;
   };
-
-  extern CoreLocal<std::atomic<ISchedulable*>> current_ec KERNEL_CLM_HOT;
-
-  inline void handle_trap(cpu::ThreadState* ctx) { current_ec->load()->handleTrap(ctx); }
-  inline void handle_syscall(cpu::ThreadState* ctx) { current_ec->load()->handleSyscall(ctx); }
 
 } // namespace mythos

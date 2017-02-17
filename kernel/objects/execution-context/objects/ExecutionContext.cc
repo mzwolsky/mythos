@@ -39,8 +39,8 @@ namespace mythos {
   ExecutionContext::ExecutionContext(IAsyncFree* memory)
     :  flags(0), memory(memory)
   {
+    threadState.handler = this;
     setFlag(IS_EXITED | NO_AS | NO_SCHED);
-    memset(&threadState, 0, sizeof(threadState));
   }
 
   void ExecutionContext::setFlagSuspend(uint8_t f)
@@ -302,9 +302,9 @@ namespace mythos {
     notificationQueue.remove(event);
   }
 
-  void ExecutionContext::handleTrap(cpu::ThreadState* ctx)
+  void ExecutionContext::handleTrap()
   {
-    ASSERT(&threadState == ctx);
+    cpu::ThreadState* ctx = &threadState;
     MLOG_ERROR(mlog::ec, "user fault", DVAR(ctx->irq), DVAR(ctx->error),
          DVARhex(ctx->cr2));
     MLOG_ERROR(mlog::ec, "...", DVARhex(ctx->rip), DVARhex(ctx->rflags),
@@ -318,9 +318,9 @@ namespace mythos {
     setFlag(IS_TRAPPED); // mark as not executable until the exception is handled
   }
 
-  void ExecutionContext::handleSyscall(cpu::ThreadState* ctx)
+  void ExecutionContext::handleSyscall()
   {
-    ASSERT(&threadState == ctx);
+    cpu::ThreadState* ctx = &threadState;
     auto& code = ctx->rdi;
     auto& userctx = ctx->rsi;
     auto portal = ctx->rdx;
@@ -371,7 +371,7 @@ namespace mythos {
         break;
 
       case SYSCALL_DEBUG: {
-        MLOG_INFO(mlog::syscall, "debug", DVARhex(userctx), DVAR(portal));
+        MLOG_DETAIL(mlog::syscall, "debug", (void*)userctx, portal);
         mlog::Logger<mlog::FilterAny> user("user");
         user.error(mlog::DebugString((char const*)userctx, portal));
         code = uint64_t(Error::SUCCESS);
@@ -429,43 +429,37 @@ namespace mythos {
       MLOG_DETAIL(mlog::syscall, DVARhex(threadState.rsi), DVAR(threadState.rdi));
     }
 
-    // remove myself from the last place's current_ec if still there
-    std::atomic<ISchedulable*>* thisPlace = current_ec.addr();
-    if (lastPlace != nullptr && thisPlace != lastPlace) {
-      ISchedulable* self = this;
-      lastPlace->compare_exchange_strong(self, nullptr);
-    }
-
     // load own context stuff if someone else was running on this place
-    ISchedulable* prev = thisPlace->load();
-    if (prev != this) {
-      if (prev) prev->unload();
+    if (cpu::thread_state.get() != &threadState) {
+      if (cpu::thread_state.get() != nullptr) cpu::thread_state->handler->saveState(); /// @todo may point to deleted object
+      monitor.acquireRef(); // prevent deletion of this object until we have reset cpu::thread_state
+      cpu::thread_state = &threadState;
+
       TypedCap<IPageMap> as(_as);
       if (!as) return (void)setFlag(NO_AS); // might have been revoked concurrently
-      cpu::thread_state = &threadState;
-      lastPlace = thisPlace;
-      thisPlace->store(this);
       auto info = as->getPageMapInfo(as.cap());
       MLOG_INFO(mlog::ec, "load addrspace", DVAR(this), DVARhex(info.table.physint()));
       getLocalPlace().setCR3(info.table);
-      /// @todo restore FPU and vector state
+
+      fpuState.restore();
     }
 
     cpu::return_to_user();
   }
 
-  void ExecutionContext::unload()
+  void ExecutionContext::saveState()
   {
-    /// @todo save FPU and vector state
+    if (cpu::thread_state.get() == &threadState) {
+      fpuState.save();
+      cpu::thread_state = nullptr;
+      monitor.releaseRef();
+    }
   }
 
   optional<void> ExecutionContext::deleteCap(Cap self, IDeleter& del)
   {
     if (self.isOriginal()) {
-      if (lastPlace != nullptr) {
-        ISchedulable* self = this;
-        lastPlace->compare_exchange_strong(self, nullptr);
-      }
+      /// @todo cpu::thread_state of last scheduled place can still point to this ? This is the same issue as with CR3 pointing to deleted address spaces
       _as.reset();
       _cs.reset();
       _sched.reset();

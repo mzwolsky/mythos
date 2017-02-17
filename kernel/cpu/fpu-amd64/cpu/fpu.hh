@@ -1,4 +1,4 @@
-/* -*- mode:C++; indent-tabs-mode:nil; -*- */
+/* -*- mode:C++; -*- */
 /* MyThOS: The Many-Threads Operating System
  *
  * Permission is hereby granted, free of charge, to any person
@@ -21,12 +21,36 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  *
- * Copyright 2016 Randolf Rotta, Robert Kuban, and contributors, BTU Cottbus-Senftenberg
+ * Copyright 2014 Randolf Rotta, Maik Krüger, and contributors, BTU Cottbus-Senftenberg
  */
 #pragma once
 
-#include "objects/ISchedulable.hh"
+#include "util/mstring.hh"
+#include "cpu/ctrlregs.hh"
 
 namespace mythos {
-  CoreLocal<std::atomic<ISchedulable*>> current_ec;
+  namespace cpu {
+
+    /** FXSAVE structure to save and restore the FPU state.
+     *
+     * see http://www.sandpile.org/x86/fp_new.htm
+     * and http://x86.renejeschke.de/html/file_module_x86_id_128.html
+     */
+    class FpuState
+    {
+    public:
+      FpuState() { save(); }
+      void save() { asm volatile("fxsaveq %0" : "=m" (*this)); }
+      void restore() { asm volatile("fxrstorq %0" : "=m" (*this)); }
+      static void initCpu() {
+        x86::setCR0((x86::getCR0() & ~0xC) | 0x19);
+        asm volatile ("clts");
+        asm volatile ("fninit");
+      }
+
+    private:
+      char raw[512] alignas(16);
+    };
+
+  } // namespace cpu
 } // namespace mythos

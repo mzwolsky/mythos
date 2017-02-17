@@ -16,4 +16,3 @@ incfiles = [
   "objects/INotifiable.hh",
   "objects/TypedCap.hh",
   ]
-kernelfiles = [ "objects/ISchedulable.cc" ]

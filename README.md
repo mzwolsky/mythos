@@ -29,6 +29,7 @@ synchronisation.
   untyped memory for allocation of kernel objects,
   portals for outgoing system calls and messages,
   execution contexts for application threads.
+* x87 FPU support (does not enable SSE/MMX nor AVX yet)
 
 ## Work in Progress
 
@@ -36,7 +37,7 @@ synchronisation.
 * endpoints for receiving incoming messages
 * asynchronous notifications for Futex and similar constructs
 * integrating a tracing framework for system-wide performance analysis
-* KNC: floating point and vector unit support
+* KNC: vector unit support
 * KNC: CPUHOT interrupt and related events
 
 ## Future Work
