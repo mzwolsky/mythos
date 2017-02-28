@@ -334,6 +334,7 @@ namespace mythos {
 
       case SYSCALL_EXIT:
         MLOG_INFO(mlog::syscall, "exit");
+        saveState();
         setFlag(IS_EXITED);
         break;
 
@@ -459,7 +460,12 @@ namespace mythos {
   optional<void> ExecutionContext::deleteCap(Cap self, IDeleter& del)
   {
     if (self.isOriginal()) {
-      /// @todo cpu::thread_state of last scheduled place can still point to this ? This is the same issue as with CR3 pointing to deleted address spaces
+      /** @todo cpu::thread_state of last scheduled place can still point to this.
+       * saveState must be called on that place in order for deleteObject to run.
+       *
+       * This is a similar issue as with CR3 pointing to deleted address spaces
+       * only if the context is allowed to be loaded in multiple places.
+       */
       _as.reset();
       _cs.reset();
       _sched.reset();
