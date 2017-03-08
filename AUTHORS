@@ -38,3 +38,8 @@ Martin Messer, BTU Cottbus-Senftenberg
 * gem5 port
 * E820 memory table
 * various code cleanups
+
+Stefan Hertrampf, BTU Cottbus-Senftenberg
+* improved xmicterm
+* improved mlog macros and output
+* cleanups in various kernel objects
