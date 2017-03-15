@@ -130,7 +130,7 @@ namespace mythos {
           return;
         }
         // next line is the only one writing nullptr to current_ec
-        if (current_ec.compare_exchange_strong(current, next)) continue; // retry with next
+        if (current_ec.compare_exchange_strong(current, next)) continue; // retry with next (TODO: should current be updated to point to next?)
         if (next != nullptr) readyQueue.push(next); // stuff next back to the queue
         // retry with the new current
       }

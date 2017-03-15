@@ -37,7 +37,7 @@
 namespace mythos {
 
   ExecutionContext::ExecutionContext(IAsyncFree* memory)
-    :  flags(0), memory(memory)
+    :  currentPlace(0), flags(0), memory(memory)
   {
     threadState.handler = this;
     setFlag(IS_EXITED | NO_AS | NO_SCHED);
@@ -84,13 +84,45 @@ namespace mythos {
     setFlagSuspend(NO_AS);
   }
 
-  optional<void> ExecutionContext::setSchedulingContext(optional<CapEntry*> sce)
+  optional<void> ExecutionContext::setSchedulingContext(optional<CapEntry*> sce) {
+    MLOG_INFO(mlog::ec, "setScheduler", DVAR(this), DVAR(sce));
+    TypedCap<IScheduler> obj(sce);
+    if (!obj) RETHROW(obj);
+    currentPlace.store(obj.obj());
+    RETURN(_sched.set(this, *sce, obj.cap()));
+  }
+
+
+  optional<void> ExecutionContext::setSchedulingContext(Tasklet* t, IInvocation* msg, optional<CapEntry*> sce)
   {
     MLOG_INFO(mlog::ec, "setScheduler", DVAR(this), DVAR(sce));
     TypedCap<IScheduler> obj(sce);
     if (!obj) RETHROW(obj);
-    RETURN(_sched.set(this, *sce, obj.cap()));
+    auto place = reinterpret_cast<async::Place*>(currentPlace.exchange(obj.obj()));
+    if (isImageAddress(place)) { // is place
+      place->run(t->set([this, msg, sce](Tasklet*){
+            saveState();
+            TypedCap<IScheduler> obj(sce);
+            if (!obj) {
+              msg->replyResponse(obj.state());
+              monitor.requestDone();
+            }
+            auto res = _sched.set(this, *sce, obj.cap());
+            msg->replyResponse(res);
+            monitor.requestDone();
+            }));
+      RETURN(Error::INHIBIT);
+    } else {
+      RETURN(_sched.set(this, *sce, obj.cap()));
+    }
   }
+
+  Error ExecutionContext::unsetSchedulingContext()
+  {
+    _sched.reset();
+    return Error::SUCCESS;
+  }
+
 
   void ExecutionContext::bind(optional<IScheduler*>)
   {
@@ -129,7 +161,7 @@ namespace mythos {
     RETURN(cs.lookup(ptr, ptrDepth, writable));
   }
 
-  Error ExecutionContext::invokeConfigure(Tasklet*, Cap, IInvocation* msg)
+  Error ExecutionContext::invokeConfigure(Tasklet* t, Cap, IInvocation* msg)
   {
     auto data = msg->getMessage()->read<protocol::ExecutionContext::Configure>();
 
@@ -145,10 +177,10 @@ namespace mythos {
       if (!err) return err.state();
     }
 
-    if (data.sched() == delete_cap) { unsetSchedulingContext(); }
-    if (data.sched() != null_cap) {
-      auto err = setSchedulingContext(msg->lookupEntry(data.sched()));
-      if (!err) return err.state();
+    if (data.sched() == delete_cap) {
+      unsetSchedulingContext();
+    } else if (data.sched() != null_cap) {
+      return setSchedulingContext(t, msg, msg->lookupEntry(data.sched())).state();
     }
 
     return Error::SUCCESS;
@@ -432,29 +464,41 @@ namespace mythos {
 
     // load own context stuff if someone else was running on this place
     if (cpu::thread_state.get() != &threadState) {
-      if (cpu::thread_state.get() != nullptr) cpu::thread_state->handler->saveState(); /// @todo may point to deleted object
-      monitor.acquireRef(); // prevent deletion of this object until we have reset cpu::thread_state
-      cpu::thread_state = &threadState;
-
+      if (!loadState()) return;
       TypedCap<IPageMap> as(_as);
-      if (!as) return (void)setFlag(NO_AS); // might have been revoked concurrently
+      // might have been revoked concurrently
+      // TODO: setting the flag here might introduce are race with setting a new AS
+      if (!as) return (void)setFlag(NO_AS);
       auto info = as->getPageMapInfo(as.cap());
       MLOG_INFO(mlog::ec, "load addrspace", DVAR(this), DVARhex(info.table.physint()));
       getLocalPlace().setCR3(info.table);
-
-      fpuState.restore();
     }
 
     cpu::return_to_user();
   }
 
+  bool ExecutionContext::loadState()
+  {
+    // this should only be called if you are sure the state has been saved
+    if (cpu::thread_state.get() != nullptr) cpu::thread_state->handler->saveState();
+    // the next this->saveState will be executed here and therefore can not race us
+    auto expected = static_cast<void*>(this);
+    ASSERT(isImageAddress(&getLocalPlace()));
+    if (currentPlace.compare_exchange_strong(expected, &getLocalPlace())) {
+      cpu::thread_state = &threadState;
+      fpuState.restore();
+    } else return false;
+    return true;
+  }
+
   void ExecutionContext::saveState()
   {
     if (cpu::thread_state.get() == &threadState) {
+      // this can only be executed once for every time this->loadState
+      // has been called, because saveState resets cpu::threadState
       fpuState.save();
       cpu::thread_state = nullptr;
-      monitor.releaseRef();
-    }
+    };
   }
 
   optional<void> ExecutionContext::deleteCap(Cap self, IDeleter& del)
@@ -476,7 +520,18 @@ namespace mythos {
 
   void ExecutionContext::deleteObject(Tasklet* t, IResult<void>* r)
   {
-    monitor.doDelete(t, [=](Tasklet* t) { this->memory->free(t, r, this, sizeof(ExecutionContext)); });
+    monitor.doDelete(t, [=](Tasklet* t) {
+          // nobody will call loadState by now
+          auto place = reinterpret_cast<async::Place*>(currentPlace.exchange(nullptr));
+          auto freeMe = [=](Tasklet* t){this->memory->free(t, r, this, sizeof(ExecutionContext)); };
+          if (isImageAddress(place)) {
+            place->run(t->set([=](Tasklet* t){
+                  // saveState() ... well, discard it
+                  if (cpu::thread_state.get() == &threadState) cpu::thread_state = nullptr;
+                  freeMe(t);
+            }));
+          } else freeMe(t);
+        });
   }
 
   void ExecutionContext::invoke(Tasklet* t, Cap self, IInvocation* msg)
@@ -527,13 +582,14 @@ namespace mythos {
           auto res = obj->setCapSpace(msg->lookupEntry(data->cs()));
           if (!res) RETHROW(res);
         }
+        if (data->start) {
+          obj->setEntryPoint(data->regs.rip);
+        }
         if (data->sched()) {
           auto res = obj->setSchedulingContext(msg->lookupEntry(data->sched()));
           if (!res) RETHROW(res);
         }
-        if (data->start) {
-          obj->setEntryPoint(data->regs.rip);
-        }
+
       }
       return *obj;
     }

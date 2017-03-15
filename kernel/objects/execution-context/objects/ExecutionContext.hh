@@ -72,8 +72,11 @@ namespace mythos {
     optional<void> setAddressSpace(optional<CapEntry*> pagemapref);
     void unsetAddressSpace() { _as.reset(); }
 
-    optional<void> setSchedulingContext(optional<CapEntry*> scref);
-    void unsetSchedulingContext() { _sched.reset(); }
+      /// only for initial setup
+      optional<void> setSchedulingContext(optional<CapEntry*> sce);
+
+      optional<void> setSchedulingContext(Tasklet* t, IInvocation* msg, optional<CapEntry*> sce);
+      Error unsetSchedulingContext();
 
     optional<void> setCapSpace(optional<CapEntry*> capmapref);
     void unsetCapSpace() { _cs.reset(); }
@@ -98,6 +101,8 @@ namespace mythos {
     void handleTrap() override;
     void handleSyscall() override;
     void saveState() override;
+
+    bool loadState();
 
   public: // IPortalUser interface
     optional<CapEntryRef> lookupRef(CapPtr ptr, CapPtrDepth ptrDepth, bool writeable) override;
@@ -143,6 +148,9 @@ namespace mythos {
     bool isBlocked(uint8_t f) const { return (f & BLOCK_MASK) != 0; }
 
   private:
+    /// the place where the state is loaded (image address)
+    /// or the next scheduler (kernel address)
+    std::atomic<void*> currentPlace;
     async::NestedMonitorDelegating monitor;
     INotifiable::list_t notificationQueue;
     std::atomic<uint8_t> flags;
