@@ -56,14 +56,14 @@ public:
   {
     _deleteQueue.push(&obj);
   }
-  
+
   optional<void> deleteEntry(CapEntry& entry) override;
-  
+
   // @todo use pointer?
   void revokeCap(Tasklet* t, result_t* res, CapEntry& entry, IKernelObject* guarded)
   {
     monitor.request(t, [=, &entry](Tasklet* t) {
-      MLOG_ERROR(mlog::cap, "revoke cap called");
+      MLOG_INFO(mlog::cap, "revoke cap called");
       _revoke(t, res, entry, guarded);
     });
   }
@@ -71,14 +71,14 @@ public:
   void deleteCap(Tasklet* t, result_t* res, CapEntry& entry, IKernelObject* guarded)
   {
     monitor.request(t, [=, &entry](Tasklet* t) {
-      MLOG_ERROR(mlog::cap, "delete cap called");
+      MLOG_INFO(mlog::cap, "delete cap called");
       _delete(t, res, entry, guarded);
     });
   }
 
   virtual void response(Tasklet* t, optional<void> res) override
   {
-    ASSERT(res.isSuccess());
+    ASSERT(res);
     monitor.response(t, [=](Tasklet* t) {
         MLOG_DETAIL(mlog::cap, "received broadcast or delete response");
         _deleteObject(t);
@@ -119,7 +119,7 @@ private:
   IKernelObject* _guarded;
   Error _result;
 
-  std::atomic_flag _lock;
+  std::atomic_flag _lock = ATOMIC_FLAG_INIT;
 
 };
 

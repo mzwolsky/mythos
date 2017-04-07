@@ -26,13 +26,14 @@
 
 #include "mythos/init.hh"
 #include "mythos/invocation.hh"
+#include "mythos/protocol/CpuDriverKNC.hh"
+#include "mythos/PciMsgQueueMPSC.hh"
 #include "runtime/Portal.hh"
 #include "runtime/ExecutionContext.hh"
 #include "runtime/CapMap.hh"
 #include "runtime/Example.hh"
 #include "runtime/PageMap.hh"
 #include "runtime/UntypedMemory.hh"
-#include "runtime/SimpleCapAlloc.hh"
 #include "app/mlog.hh"
 #include <cstdint>
 #include "util/optional.hh"
@@ -63,63 +64,56 @@ void* thread_main(void* ctx)
 
 void test_Example()
 {
-  MLOG_ERROR(mlog::app, "test_Example begin");
   char const obj[] = "hello object!";
+  MLOG_ERROR(mlog::app, "test_Example begin");
+  mythos::PortalLock pl(portal); // future access will fail if the portal is in use already
   mythos::Example example(mythos::init::APP_CAP_START);
-  auto res1 = example.create(portal, kmem, mythos::init::EXAMPLE_FACTORY);
-  res1.wait();
-  ASSERT(res1.state() == mythos::Error::SUCCESS);
-  auto res2 = example.printMessage(res1.reuse(), obj, sizeof(obj)-1);
-  res2.wait();
-  ASSERT(res2.state() == mythos::Error::SUCCESS);
-  auto res3 = myCS.deleteCap(res2.reuse(), example);
-  res3.wait();
-  ASSERT(res3.state() == mythos::Error::SUCCESS);
+  auto res1 = example.create(pl, kmem).wait(); // use default mythos::init::EXAMPLE_FACTORY
+  // wait() waits until the result is ready and returns a copy of the data and state.
+  // hence, the contents of res1 are valid even after the next use of the portal
+  ASSERT(res1);
+  //res1.release(); // implicit by its destructor
+  auto res2 = example.printMessage(pl, obj, sizeof(obj)-1).wait();
+  ASSERT(res2);
+  auto res3 = myCS.deleteCap(pl, example).wait();
+  ASSERT(res3);
+  // pl.release(); // implicit by PortalLock's destructor
   MLOG_ERROR(mlog::app, "test_Example end");
 }
 
 void test_Portal()
 {
   MLOG_ERROR(mlog::app, "test_Portal begin");
-  mythos::SimpleCapAlloc ca(&portal, myCS, mythos::init::APP_CAP_START,
-                           mythos::init::SIZE-mythos::init::APP_CAP_START);
+  mythos::PortalLock pl(portal); // future access will fail if the portal is in use already
   MLOG_INFO(mlog::app, "test_Portal: allocate portal");
-  uintptr_t vaddr = 20*1024*1024;
+  uintptr_t vaddr = 21*1024*1024; // choose address different from invokation buffer
   // allocate a portal
-  mythos::Portal p2(*ca.alloc(), (void*)vaddr);
-  auto res1 = p2.create(portal, kmem);
-  res1.wait();
+  mythos::Portal p2(mythos::init::APP_CAP_START, (void*)vaddr);
+  auto res1 = p2.create(pl, kmem).wait();
   ASSERT(res1);
-
   // allocate a 2MiB frame
   MLOG_INFO(mlog::app, "test_Portal: allocate frame");
-  mythos::Frame f(*ca.alloc());
-  auto res2 = f.create(res1.reuse(), kmem, mythos::init::MEMORY_REGION_FACTORY,
-                       2*1024*1024, 2*1024*1024);
-  res2.wait();
+  mythos::Frame f(mythos::init::APP_CAP_START+1);
+  auto res2 = f.create(pl, kmem, 2*1024*1024, 2*1024*1024).wait();
   MLOG_INFO(mlog::app, "alloc frame", DVAR(res2.state()));
   ASSERT(res2);
-
   // map the frame into our address space
   MLOG_INFO(mlog::app, "test_Portal: map frame");
-  auto res3 = myAS.mmap(res2.reuse(), f, vaddr, 2*1024*1024, 0x1);
+  auto res3 = myAS.mmap(pl, f, vaddr, 2*1024*1024, 0x1).wait();
   MLOG_INFO(mlog::app, "mmap frame", DVAR(res3.state()),
             DVARhex(res3->vaddr), DVARhex(res3->size), DVAR(res3->level));
-  res3.wait();
   ASSERT(res3);
-
   // bind the portal in order to receive responses
   MLOG_INFO(mlog::app, "test_Portal: configure portal");
-  auto res4 = p2.bind(res3.reuse(), f, 0, mythos::init::EC);
-  res4.wait();
+  auto res4 = p2.bind(pl, f, 0, mythos::init::EC).wait();
   ASSERT(res4);
-
   // and delete everything again
-  res4.close();
   MLOG_INFO(mlog::app, "test_Portal: delete frame");
-  ca.freeObject(f);
+  auto res5 = myCS.deleteCap(pl, f).wait();
+  ASSERT(res5);
   MLOG_INFO(mlog::app, "test_Portal: delete portal");
-  ca.freeObject(p2);
+  auto res6 = myCS.deleteCap(pl, p2).wait();
+  ASSERT(res6);
   MLOG_ERROR(mlog::app, "test_Portal end");
 }
 
@@ -135,29 +129,66 @@ void test_float()
   MLOG_INFO(mlog::app, "float z:", int(z), ".", int(1000*(z-float(int(z)))));
 }
 
+struct HostChannel {
+  void init() { ctrlToHost.init(); ctrlFromHost.init(); }
+  typedef mythos::PCIeRingChannel<128,8> CtrlChannel;
+  CtrlChannel ctrlToHost;
+  CtrlChannel ctrlFromHost;
+};
+
+mythos::PCIeRingProducer<HostChannel::CtrlChannel> app2host;
+mythos::PCIeRingConsumer<HostChannel::CtrlChannel> host2app;
+
 int main()
 {
   char const str[] = "hello world!";
   char const end[] = "bye, cruel world!";
   mythos::syscall_debug(str, sizeof(str)-1);
+  MLOG_ERROR(mlog::app, "application is starting :)", DVARhex(msg_ptr), DVARhex(initstack_top));
 
-  test_float();
-  test_Example();
-  test_Portal();
+  // test_Example();
+  // test_Portal();
 
-  mythos::ExecutionContext ec1(mythos::init::APP_CAP_START);
-  auto res1 = ec1.create(portal, kmem, mythos::init::EXECUTION_CONTEXT_FACTORY,
-                         myAS, myCS, mythos::init::SCHEDULERS_START,
-                         thread1stack_top, &thread_main, nullptr);
-  res1.wait();
-  ASSERT(res1.state() == mythos::Error::SUCCESS);
+  {
+    mythos::PortalLock pl(portal); // future access will fail if the portal is in use already
+    // allocate a 2MiB frame
+    mythos::Frame hostChannelFrame(mythos::init::APP_CAP_START);
+    auto res1 = hostChannelFrame.create(pl, kmem, 2*1024*1024, 2*1024*1024).wait();
+    MLOG_INFO(mlog::app, "alloc hostChannel frame", DVAR(res1.state()));
+    ASSERT(res1);
 
-  mythos::ExecutionContext ec2(mythos::init::APP_CAP_START+1);
-  auto res2 = ec2.create(res1.reuse(), kmem, mythos::init::EXECUTION_CONTEXT_FACTORY,
-                         myAS, myCS, mythos::init::SCHEDULERS_START+1,
-                         thread2stack_top, &thread_main, nullptr);
-  res2.wait();
-  ASSERT(res2.state() == mythos::Error::SUCCESS);
+    // map the frame into our address space
+    uintptr_t vaddr = 22*1024*1024;
+    auto res2 = myAS.mmap(pl, hostChannelFrame, vaddr, 2*1024*1024, 0x1).wait();
+    MLOG_INFO(mlog::app, "mmap hostChannel frame", DVAR(res2.state()),
+              DVARhex(res2.get().vaddr), DVARhex(res2.get().size), DVAR(res2.get().level));
+    ASSERT(res2);
+
+    // initialise the memory
+    HostChannel* hostChannel = reinterpret_cast<HostChannel*>(vaddr);
+    hostChannel->init();
+    host2app.setChannel(&hostChannel->ctrlFromHost);
+    app2host.setChannel(&hostChannel->ctrlToHost);
+
+    // register the frame in the host info table
+    // auto res3 = mythos::PortalFuture<void>(pl.invoke<mythos::protocol::CpuDriverKNC::SetInitMem>(mythos::init::CPUDRIVER, hostChannelFrame.cap())).wait();
+    // MLOG_INFO(mlog::app, "register at host info table", DVAR(res3.state()));
+    //ASSERT(res3.state() == mythos::Error::SUCCESS);
+  }
+
+  mythos::ExecutionContext ec1(mythos::init::APP_CAP_START+1);
+  mythos::ExecutionContext ec2(mythos::init::APP_CAP_START+2);
+  {
+    MLOG_INFO(mlog::app, "test_EC: create ec1");
+    mythos::PortalLock pl(portal); // future access will fail if the portal is in use already
+    auto res1 = ec1.create(pl, kmem, myAS, myCS, mythos::init::SCHEDULERS_START,
+                           thread1stack_top, &thread_main, nullptr).wait();
+    ASSERT(res1);
+    MLOG_INFO(mlog::app, "test_EC: create ec2");
+    auto res2 = ec2.create(pl, kmem, myAS, myCS, mythos::init::SCHEDULERS_START+1,
+                           thread2stack_top, &thread_main, nullptr).wait();
+    ASSERT(res2);
+  }
 
   for (volatile int i=0; i<100000; i++) {
     for (volatile int j=0; j<1000; j++) {}

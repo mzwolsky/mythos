@@ -41,6 +41,7 @@ namespace mythos {
   {
     threadState.handler = this;
     setFlag(IS_EXITED | NO_AS | NO_SCHED);
+    threadState.rflags = x86::FLAG_IF;
   }
 
   void ExecutionContext::setFlagSuspend(uint8_t f)
@@ -84,7 +85,8 @@ namespace mythos {
     setFlagSuspend(NO_AS);
   }
 
-  optional<void> ExecutionContext::setSchedulingContext(optional<CapEntry*> sce) {
+  optional<void> ExecutionContext::setSchedulingContext(optional<CapEntry*> sce)
+  {
     MLOG_INFO(mlog::ec, "setScheduler", DVAR(this), DVAR(sce));
     TypedCap<IScheduler> obj(sce);
     if (!obj) RETHROW(obj);
@@ -391,17 +393,18 @@ namespace mythos {
       case SYSCALL_INVOKE_POLL:
         MLOG_INFO(mlog::syscall, "invoke_poll", DVAR(portal), DVAR(kobj), DVARhex(userctx));
         code = uint64_t(syscallInvoke(CapPtr(portal), CapPtr(kobj), userctx).state());
-        if (Error(code) != Error::SUCCESS) break;
-        setFlag(IN_WAIT);
+        if (Error(code) == Error::SUCCESS) setFlag(IN_WAIT); // else return the error code
         break;
 
-      case SYSCALL_INVOKE_WAIT:
+      case SYSCALL_INVOKE_WAIT: {
         MLOG_INFO(mlog::syscall, "invoke_wait", DVAR(portal), DVAR(kobj), DVARhex(userctx));
         code = uint64_t(syscallInvoke(CapPtr(portal), CapPtr(kobj), userctx).state());
-        if (Error(code) != Error::SUCCESS) break;
-        setFlag(IN_WAIT | IS_WAITING);
-        if (!notificationQueue.empty()) clearFlag(IS_WAITING); // because of race with notifier
+        if (Error(code) != Error::SUCCESS) break; // just return the error code
+        auto prevState = setFlag(IN_WAIT | IS_WAITING);
+        if (!notificationQueue.empty() || (prevState & IS_NOTIFIED))
+          clearFlag(IS_WAITING); // because of race with notifier
         break;
+      }
 
       case SYSCALL_DEBUG: {
         MLOG_DETAIL(mlog::syscall, "debug", (void*)userctx, portal);
@@ -459,7 +462,7 @@ namespace mythos {
         threadState.rsi = 0;
         threadState.rdi = uint64_t(Error::NO_MESSAGE);
       }
-      MLOG_DETAIL(mlog::syscall, DVARhex(threadState.rsi), DVAR(threadState.rdi));
+      //MLOG_DETAIL(mlog::syscall, DVARhex(threadState.rsi), DVAR(threadState.rdi));
     }
 
     // load own context stuff if someone else was running on this place
@@ -470,10 +473,11 @@ namespace mythos {
       // TODO: setting the flag here might introduce are race with setting a new AS
       if (!as) return (void)setFlag(NO_AS);
       auto info = as->getPageMapInfo(as.cap());
-      MLOG_INFO(mlog::ec, "load addrspace", DVAR(this), DVARhex(info.table.physint()));
+      MLOG_DETAIL(mlog::ec, "load addrspace", DVAR(this), DVARhex(info.table.physint()));
       getLocalPlace().setCR3(info.table);
     }
 
+    MLOG_INFO(mlog::ec, "resuming", DVAR(this), DVARhex(threadState.rip), DVARhex(threadState.rsp));
     cpu::return_to_user();
   }
 
@@ -589,7 +593,6 @@ namespace mythos {
           auto res = obj->setSchedulingContext(msg->lookupEntry(data->sched()));
           if (!res) RETHROW(res);
         }
-
       }
       return *obj;
     }

@@ -16,6 +16,8 @@ object monitors. Granting and revoking access rights (object
 capabilities) affects just a small set of rights in order to minimise
 synchronisation.
 
+* https://manythreads.github.io/mythos/
+
 ## Current State of Implementation
 
 * Supports x86-64 (aka amd64) emulators like QEMU and Bochs.
@@ -65,6 +67,6 @@ In order to run MyThOS on an Intel XeonPhi Knights Corner processor, a recent ve
 
 # Acknowledgements
 
-The MyThOS project was funded by the Federal Ministry of Education and Research (BMBF) under Grant No. 01/H13003 from October 2013 to September 2016. The grant was part of the 3rd HPC-Call of the Gauss Allianz.
+The MyThOS project was funded by the Federal Ministry of Education and Research (BMBF) under Grant No. 01IH13003 from October 2013 to September 2016. The grant was part of the 3rd HPC-Call of the Gauss Allianz.
 
 The high-level kernel design is inspired by the many good ideas from seL4, Nova, Fiasco, and L4. The delegation-based monitors are inspired by delegation locks.
