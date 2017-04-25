@@ -1,5 +1,5 @@
 /* -*- mode:C++; indent-tabs-mode:nil; -*- */
-/* MyThOS: The Many-Threads Operating System
+/* MIT License -- MyThOS: The Many-Threads Operating System
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
@@ -146,7 +146,7 @@ public:
 public: // IKernelObject interface
   Range<uintptr_t> addressRange(Cap self) override;
   optional<void const*> vcast(TypeId id) const override {
-    if (id == TypeId::id<IPageMap>()) return static_cast<IPageMap const*>(this);
+    if (id == typeId<IPageMap>()) return static_cast<IPageMap const*>(this);
     THROW(Error::TYPE_MISMATCH);
   }
 

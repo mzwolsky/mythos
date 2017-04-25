@@ -1,5 +1,5 @@
 /* -*- mode:C++; -*- */
-/* MyThOS: The Many-Threads Operating System
+/* MIT License -- MyThOS: The Many-Threads Operating System
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
@@ -31,7 +31,8 @@ namespace mythos {
 namespace async {
 
   void NestedMonitorDelegating::request(Tasklet* msg) {
-    if (waitq.push(msg)) { // first push, acquired exclusive access
+    ASSERT(msg);
+    if (waitq.push(*msg)) { // first push, acquired exclusive access
       this->acquireRef(); // mark object as used
       Place* myPlace = &getLocalPlace();
       MLOG_DETAIL(mlog::async, "NMD",this, "req acquired waitq", DVAR(msg), DVAR(myPlace));

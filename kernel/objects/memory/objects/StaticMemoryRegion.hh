@@ -1,5 +1,5 @@
 /* -*- mode:C++; -*- */
-/* MyThOS: The Many-Threads Operating System
+/* MIT License -- MyThOS: The Many-Threads Operating System
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
@@ -52,7 +52,7 @@ public:
     return cap::inherit(root, _ownRoot, root.cap(), Cap(this,FrameData()));
   }
 
-  /** used to attach the root UntypedMemory as child of a static memory region. */
+  /** used to attach the root KernelMemory as child of a static memory region. */
   CapEntry& getRoot() { return _ownRoot; }
 
 public: // IFrame interface
@@ -63,7 +63,7 @@ public: // IFrame interface
 
 public: // IKernelObject interface
   optional<void const*> vcast(TypeId id) const override {
-    if (TypeId::id<IFrame>() == id) return static_cast<const IFrame*>(this);
+    if (typeId<IFrame>() == id) return static_cast<const IFrame*>(this);
     THROW(Error::TYPE_MISMATCH);
   }
 

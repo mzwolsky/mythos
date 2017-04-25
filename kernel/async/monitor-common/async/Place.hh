@@ -1,5 +1,5 @@
 /* -*- mode:C++; -*- */
-/* MyThOS: The Many-Threads Operating System
+/* MIT License -- MyThOS: The Many-Threads Operating System
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
@@ -56,7 +56,7 @@ public:
 
   enum Mode { ASYNC, MAYINLINE };
 
-  void runLocal(Tasklet* msg, Mode mode=ASYNC) {
+  void runLocal(TaskletBase* msg, Mode mode=ASYNC) {
     ASSERT(isLocal());
     if (mode == ASYNC) {
       pushPrivate(msg);
@@ -66,14 +66,15 @@ public:
     }
   }
 
-  void run(Tasklet* msg, Mode mode=ASYNC) {
+  void run(TaskletBase* msg, Mode mode=ASYNC) {
     if (isLocal()) runLocal(msg, mode);
     else pushShared(msg);
   }
 
-  void pushShared(Tasklet* msg) {
-    //MLOG_DETAIL(mlog::async, this, "push shared", msg);
-    if (queue.push(msg)) wakeup();
+  void pushShared(TaskletBase* msg) {
+    ASSERT(msg);
+    MLOG_DETAIL(mlog::async, this, "push shared", msg);
+    if (queue.push(*msg)) wakeup();
   }
 
   /** prepare the kernel's task processing. returns true if nested entry. */
@@ -91,10 +92,11 @@ public:
   bool isActive() const { return nestingMonitor.load(std::memory_order_relaxed); }
 
 protected:
-  void pushPrivate(Tasklet* msg) {
+  void pushPrivate(TaskletBase* msg) {
     ASSERT(isLocal());
-    //MLOG_DETAIL(mlog::async, this, "push private", msg);
-    queue.pushPrivate(msg);
+    ASSERT(msg);
+    MLOG_DETAIL(mlog::async, this, "push private", msg);
+    queue.pushPrivate(*msg);
   }
 
   void wakeup() { mythos::lapic.sendIRQ(apicID, 32); }
@@ -102,13 +104,12 @@ protected:
 protected:
   size_t apicID; //< for wakeup signals
   std::atomic<bool> nestingMonitor;
-  TaskletQueue queue; //< for pending tasks
-  char padding[64-sizeof(apicID)-sizeof(nestingMonitor)-sizeof(queue)]; // TODO to ensure separate cache lines
-
+  TaskletQueueImpl<ChainFIFOBaseAligned> queue; //< for pending tasks
   PhysPtr<void> _cr3;
 };
 
-/** @todo Should be allocated into local cachelines. */
+/// @todo Should be allocated into local cachelines.
+/// @todo should be moved to the boot/deployment code instead of hardcoding here!
 extern Place places[BOOT_MAX_THREADS];
 inline Place* getPlace(size_t threadid) { return &places[threadid]; }
 

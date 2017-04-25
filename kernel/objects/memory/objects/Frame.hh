@@ -1,5 +1,5 @@
 /* -*- mode:C++; -*- */
-/* MyThOS: The Many-Threads Operating System
+/* MIT License -- MyThOS: The Many-Threads Operating System
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
@@ -49,7 +49,7 @@ public: // IFrame interface
 
 public: // IKernelObject interface
   optional<void const*> vcast(TypeId id) const override {
-    if (id == TypeId::id<IFrame>()) return static_cast<IFrame const*>(this);
+    if (id == typeId<IFrame>()) return static_cast<IFrame const*>(this);
     THROW(Error::TYPE_MISMATCH);
   }
 
