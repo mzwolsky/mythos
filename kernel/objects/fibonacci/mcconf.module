@@ -1,0 +1,5 @@
+# -*- mode:toml; -*-
+
+[module.objects_fibonacci]
+    incfiles = [ "objects/Fibonacci.hh" ]
+    kernelfiles = [ "objects/Fibonacci.cc" ]

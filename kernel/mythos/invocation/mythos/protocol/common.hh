@@ -42,6 +42,7 @@ namespace mythos {
       EXECUTION_CONTEXT,
       PORTAL,
       EXAMPLE,
+      FIBONACCI,
       CPUDRIVERKNC,
     };
 

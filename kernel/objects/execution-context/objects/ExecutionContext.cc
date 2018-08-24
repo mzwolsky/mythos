@@ -120,7 +120,7 @@ namespace mythos {
   {
     MLOG_INFO(mlog::ec, "EC setEntryPoint", DVARhex(rip));
     threadState.rip = rip;
-    clearFlagResume(IS_EXITED);
+    //clearFlagResume(IS_EXITED);
   }
 
   optional<CapEntryRef> ExecutionContext::lookupRef(CapPtr ptr, CapPtrDepth ptrDepth, bool writable)
@@ -257,6 +257,17 @@ namespace mythos {
   Error ExecutionContext::invokeResume(Tasklet*, Cap, IInvocation*)
   {
     clearFlagResume(IS_TRAPPED);
+    return Error::SUCCESS;
+  }
+
+  Error ExecutionContext::invokeRun(Tasklet*, Cap, IInvocation*)
+  {
+    if (!this->_as.get()) return Error::UNSET;
+    if (!this->_cs.get()) return Error::UNSET;
+    if (!this->_sched.get()) return Error::UNSET;
+    if (!this->threadState.rip) return Error::UNSET;
+
+    this->run();
     return Error::SUCCESS;
   }
 
@@ -459,6 +470,11 @@ namespace mythos {
     cpu::return_to_user();
   }
 
+  void ExecutionContext::run()
+  {
+	  clearFlagResume(IS_EXITED);
+  }
+
   void ExecutionContext::unload()
   {
     /// @todo save FPU and vector state
@@ -547,5 +563,3 @@ namespace mythos {
     }
 
 } // namespace mythos
-
-

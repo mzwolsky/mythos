@@ -8,6 +8,7 @@
              "mythos/protocol/Frame.hh",
              "mythos/protocol/KernelMemory.hh",
              "mythos/protocol/Example.hh",
+             "mythos/protocol/Fibonacci.hh",
              "mythos/protocol/CapMap.hh",
              "mythos/protocol/Portal.hh",
              ]
