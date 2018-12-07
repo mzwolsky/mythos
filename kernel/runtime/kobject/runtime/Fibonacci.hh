@@ -29,6 +29,7 @@
 #include "mythos/protocol/Fibonacci.hh"
 #include "runtime/KernelMemory.hh"
 #include "mythos/init.hh"
+#include "app/mlog.hh"  //debug
 
 namespace mythos {
 
@@ -43,6 +44,7 @@ namespace mythos {
     }
 
     PortalFuture<void> printMessage(PortalLock pr, char const* str, size_t bytes) {
+      MLOG_INFO(mlog::app, "playground:", "FibonacciRT", str, bytes); //debug
       return pr.invoke<protocol::Fibonacci::PrintMessage>(_cap, str, bytes);
     }
   };

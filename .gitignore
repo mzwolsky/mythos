@@ -9,6 +9,9 @@ Makefile.user
 *.pyc
 *.orig
 
+history_gdb.txt
+history_qemu.txt
+
 #eclipse files
 .cproject
 .project
@@ -144,6 +147,9 @@ sympy-plots-for-*.tex/
 
 # todonotes
 *.tdo
+
+#VS files
+.vs/
 
 # xindy
 *.xdy

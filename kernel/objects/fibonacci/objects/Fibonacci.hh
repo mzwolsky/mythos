@@ -33,6 +33,7 @@
 #include "objects/CapEntry.hh"
 #include "mythos/protocol/KernelObject.hh"
 #include "mythos/protocol/Fibonacci.hh"
+#include "app/mlog.hh"  //debug
 
 namespace mythos {
 

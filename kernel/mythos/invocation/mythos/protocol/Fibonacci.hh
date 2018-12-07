@@ -28,6 +28,7 @@
 #include <cstring>
 #include "mythos/protocol/common.hh"
 #include "mythos/protocol/KernelMemory.hh"
+#include "app/mlog.hh"  //debug
 
 namespace mythos {
   namespace protocol {
@@ -37,12 +38,13 @@ namespace mythos {
 
       enum Methods : uint8_t {
         PRINT_MESSAGE,
-        FIB_ALGO,
+        //! FIB_ALGO,
       };
 
       struct PrintMessage : public InvocationBase {
         typedef InvocationBase response_type;
         constexpr static uint16_t label = (proto<<8) + PRINT_MESSAGE;
+        // MLOG_INFO(mlog::app, "playground:", "FibonacciProt");
         PrintMessage(char const* str, size_t bytes)
           : InvocationBase(label,getLength(this))
         {
@@ -63,8 +65,8 @@ namespace mythos {
       static Error dispatchRequest(IMPL* obj, uint8_t m, ARGS const&...args) {
         switch(Methods(m)) {
           case PRINT_MESSAGE: return obj->printMessage(args...);
-          case FIB_ALGO: return obj->fibonacci(args...);
-          default: return Error::NOT_IMPLEMENTED;
+          //! case FIB_ALGO: return obj->fibonacci(args...);
+          default: return m;
         }
       }
 

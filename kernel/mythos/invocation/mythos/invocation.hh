@@ -28,6 +28,7 @@
 #include "mythos/protocol/common.hh"
 #include "mythos/protocol/KernelObject.hh"
 #include "mythos/protocol/Example.hh"
+#include "mythos/protocol/Fibonacci.hh"
 #include "mythos/protocol/ExecutionContext.hh"
 #include "mythos/protocol/KernelMemory.hh"
 #include "mythos/protocol/CapMap.hh"
@@ -35,4 +36,3 @@
 #include "mythos/protocol/Frame.hh"
 #include "mythos/protocol/PageMap.hh"
 #include "mythos/syscall.hh"
-

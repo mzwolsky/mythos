@@ -76,6 +76,7 @@ namespace mythos {
           err = protocol::Fibonacci::dispatchRequest(this, msg->getMethod(), t, self, msg);
           break;
         }
+        MLOG_INFO(mlog::app, "playground:", "FibonacciObj:invoke", err, msg->getMessage());
         if (err != Error::INHIBIT) {
           msg->replyResponse(err);
           monitor.requestDone();
@@ -91,6 +92,7 @@ namespace mythos {
 
   Error FibonacciObj::printMessage(Tasklet*, Cap self, IInvocation* msg)
   {
+    MLOG_INFO(mlog::app, "playground:", "FibonacciObj:print", msg->getMessage());
     mlogex.info("invoke printMessage", DVAR(this), DVAR(self), DVAR(msg));
     auto data = msg->getMessage()->cast<protocol::Fibonacci::PrintMessage>();
     mlogex.error(mlog::DebugString(data->message, data->bytes));

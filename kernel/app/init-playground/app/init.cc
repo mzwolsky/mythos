@@ -41,7 +41,7 @@
 #include <cstdint>
 #include "util/optional.hh"
 
-#define PARALLEL_ECS 8 // must be > 2
+#define PARALLEL_ECS 3 // must be > 2
 
 mythos::InvocationBuf* msg_ptr asm("msg_ptr");
 int main() asm("main");
@@ -97,8 +97,8 @@ void* pgThread2(void* ctx) {
 void* portalInvoke(void* ctx) { //!
   size_t worker = (size_t)ctx;
   MLOG_INFO(mlog::app, "playground:", "Portal invoke example", worker);
-  mythos::Example example(capAlloc());
-  // mythos::Fibonacci example(capAlloc());  //! Test with identical Fibonacci class
+  // mythos::Example example(capAlloc());
+  mythos::Fibonacci example(capAlloc());  //! Test with identical Fibonacci class
   mythos::Portal portal(portals[worker], invocationBuffers[worker]);
   mythos::PortalLock pl(portal);
 
@@ -112,8 +112,9 @@ void* portalInvoke(void* ctx) { //!
   // auto res2 = example.printMessage(pl, msg, strlen(msg)-1).wait();
   char msg[] = "playground: Hello example!";
   auto res2 = example.printMessage(pl, msg, sizeof(msg)-1).wait();
+  // auto res2 = example.printMessage(pl, 0, 0).wait();
   if (!res2) {
-    MLOG_ERROR(mlog::app, "playground:", "Portal invoke failed!");
+    MLOG_ERROR(mlog::app, "playground:", "Portal invoke failed:", res2);
   }
   pl.release();
 }
@@ -183,23 +184,23 @@ int main() {
   mythos::PortalLock pl1(myPortal);
   createdECs[0] = capAlloc();
   mythos::ExecutionContext pgec0(createdECs[0]);
-  MLOG_INFO(mlog::app, "playground:", "Creating ExecutionContext pgec0...");
-  auto res1 = pgec0.create(pl1, kmem, myAS, myCS, mythos::init::SCHEDULERS_START, threadstack_top, &pgThread1, nullptr).wait();
-  if (!res1) {
-    MLOG_ERROR(mlog::app, "playground:", "Creation failed");
-  }
-  pgec0.run(pl1).wait();  //will go into a waiting state until notified
+  // MLOG_INFO(mlog::app, "playground:", "Creating ExecutionContext pgec0...");
+  // auto res1 = pgec0.create(pl1, kmem, myAS, myCS, mythos::init::SCHEDULERS_START, threadstack_top, &pgThread1, nullptr).wait();
+  // if (!res1) {
+    // MLOG_ERROR(mlog::app, "playground:", "Creation failed");
+  // }
+  // pgec0.run(pl1).wait();  //will go into a waiting state until notified
   pl1.release();
 
   mythos::PortalLock pl2(myPortal);
   createdECs[1] = capAlloc();
   mythos::ExecutionContext pgec1(createdECs[1]);
-  MLOG_INFO(mlog::app, "playground:", "Creating ExecutionContext pgec1...");
-  auto res2 = pgec1.create(pl2, kmem, myAS, myCS, mythos::init::SCHEDULERS_START, threadstack_top-4096, &pgThread2, &pgec0).wait();
-  if (!res2) {
-    MLOG_ERROR(mlog::app, "playground:", "Creation failed");
-  }
-  pgec1.run(pl2).wait();  //will go into a waiting state until notified
+  // MLOG_INFO(mlog::app, "playground:", "Creating ExecutionContext pgec1...");
+  // auto res2 = pgec1.create(pl2, kmem, myAS, myCS, mythos::init::SCHEDULERS_START, threadstack_top-4096, &pgThread2, &pgec0).wait();
+  // if (!res2) {
+  //   MLOG_ERROR(mlog::app, "playground:", "Creation failed");
+  // }
+  // pgec1.run(pl2).wait();  //will go into a waiting state until notified
   pl2.release();
 
   //--create a batch of workers and have them create KObjects and invoke those--
@@ -229,8 +230,8 @@ int main() {
   //! have 4 new/existing workers calculate the number (tree with 4 worker leafs)
 
   //--notify pgec1 to resume from waiting state--
-  MLOG_INFO(mlog::app, "playground:", "notifying pgec1..");
-  mythos::syscall_notify(pgec1.cap());
+  // MLOG_INFO(mlog::app, "playground:", "notifying pgec1..");
+  // mythos::syscall_notify(pgec1.cap());
   //pgec1 will do idle counting for some cycles and then notify pgec0
 
   char const fish[] = "playground: So long and thanks for all the fish!";
