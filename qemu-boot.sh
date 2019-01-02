@@ -6,6 +6,7 @@ if echo $@ | grep -qP '\B\-\w*h|\-\-help'; then #options '-*h' and '--help'
   echo "Usage: ./qemu-boot.sh [OPTIONS] [path/to/log]"
   echo -e "COMPILE OPTIONS:\n  -h, --help\tprint this guide\n  -k\t\tremake entire kernel (only)\n  -m\t\tremake (quiet)\n  -r\t\trebuild only (not quiet)"
   echo -e "FILTER OPTIONS: filter console output\n  -p\t\tfor playground\n  -a\t\tfor app messages\n  -e\t\tfor ec messages"
+  echo -e "RUN OPTIONS:\n  -d\t\trun in DEBUG mode, creating a gdbserver at localhost:1234 and halt at boot"
   echo "Paths must start with either .|..|/ or a word character (alphanumeric + '_')"
   echo -e "WARNING:\n  Do not use more than two options with one '-' (like '-mrp'), this will be detected as a path!"
   exit 0
@@ -53,6 +54,22 @@ else
   pattern="(.|\n)*"
 fi
 
+#--debug call--
+if echo $@ | grep -qP '\B\-\w*d'; then #option '-*d' start in debug mode (gdb server and halt on start)
+  echo "Starting in DEBUG mode!"
+  echo "gdbserver at localhost:1234 halted"
+  trap "kill 0" EXIT
+  gdbgui &
+  echo "gdbgui at localhost:5000 started"
+
+  #call with ./kernel-amd64/boot32.elf
+  qemu-system-x86_64 -S -s -m 1024 -cpu SandyBridge -smp 4 -D qemu-system.log -serial stdio -serial file:mythos.trace -d pcall,int,unimp,guest_errors -no-reboot -display none -kernel ./kernel-amd64/boot32.elf \
+  | tee "$path" \
+  | grep -P -e $pattern #filter output for the specified pattern
+  exit 0
+fi
+
+#--standard call--
 #call with ./kernel-amd64/boot32.elf
 qemu-system-x86_64 -m 1024 -cpu SandyBridge -smp 4 -D qemu-system.log -serial stdio -serial file:mythos.trace -d pcall,int,unimp,guest_errors -no-reboot -display none -kernel ./kernel-amd64/boot32.elf \
 | tee "$path" \

@@ -44,10 +44,10 @@ namespace mythos {
       struct PrintMessage : public InvocationBase {
         typedef InvocationBase response_type;
         constexpr static uint16_t label = (proto<<8) + PRINT_MESSAGE;
-        // MLOG_INFO(mlog::app, "playground:", "FibonacciProt");
         PrintMessage(char const* str, size_t bytes)
           : InvocationBase(label,getLength(this))
         {
+          MLOG_INFO(mlog::app, "playground:", "FibonacciProt"); //debug
           if (bytes>InvocationBase::maxBytes) bytes = InvocationBase::maxBytes;
           this->bytes = uint16_t(bytes);
           this->tag.length = uint8_t((bytes+3)/4);
@@ -66,7 +66,7 @@ namespace mythos {
         switch(Methods(m)) {
           case PRINT_MESSAGE: return obj->printMessage(args...);
           //! case FIB_ALGO: return obj->fibonacci(args...);
-          default: return m;
+          default: return Error::NOT_IMPLEMENTED;
         }
       }
 

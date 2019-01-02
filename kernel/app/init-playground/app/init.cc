@@ -97,8 +97,8 @@ void* pgThread2(void* ctx) {
 void* portalInvoke(void* ctx) { //!
   size_t worker = (size_t)ctx;
   MLOG_INFO(mlog::app, "playground:", "Portal invoke example", worker);
-  // mythos::Example example(capAlloc());
-  mythos::Fibonacci example(capAlloc());  //! Test with identical Fibonacci class
+  mythos::Example example(capAlloc());
+  // mythos::Fibonacci example(capAlloc());  //! Test with identical Fibonacci class
   mythos::Portal portal(portals[worker], invocationBuffers[worker]);
   mythos::PortalLock pl(portal);
 
@@ -107,13 +107,14 @@ void* portalInvoke(void* ctx) { //!
     MLOG_ERROR(mlog::app, "playground:", "Example", worker, "creation failed!");
     return 0;
   }
+  MLOG_INFO(mlog::app, "playground:", "Example created", worker);
 
-  // char* msg = "playground: Hello example " << (char*)worker;
+  // char* msg = "playground: Hello example " + (char)worker;
   // auto res2 = example.printMessage(pl, msg, strlen(msg)-1).wait();
   char msg[] = "playground: Hello example!";
   auto res2 = example.printMessage(pl, msg, sizeof(msg)-1).wait();
-  // auto res2 = example.printMessage(pl, 0, 0).wait();
   if (!res2) {
+    // mythos::Error err = static_cast<mythos::Error>(res2);
     MLOG_ERROR(mlog::app, "playground:", "Portal invoke failed:", res2);
   }
   pl.release();

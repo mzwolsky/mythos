@@ -11,6 +11,7 @@ Makefile.user
 
 history_gdb.txt
 history_qemu.txt
+python-libs/
 
 #eclipse files
 .cproject
