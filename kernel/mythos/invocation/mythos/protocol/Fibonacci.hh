@@ -28,7 +28,6 @@
 #include <cstring>
 #include "mythos/protocol/common.hh"
 #include "mythos/protocol/KernelMemory.hh"
-#include "app/mlog.hh"  //debug
 
 namespace mythos {
   namespace protocol {
@@ -47,7 +46,6 @@ namespace mythos {
         PrintMessage(char const* str, size_t bytes)
           : InvocationBase(label,getLength(this))
         {
-          MLOG_INFO(mlog::app, "playground:", "FibonacciProt"); //debug
           if (bytes>InvocationBase::maxBytes) bytes = InvocationBase::maxBytes;
           this->bytes = uint16_t(bytes);
           this->tag.length = uint8_t((bytes+3)/4);

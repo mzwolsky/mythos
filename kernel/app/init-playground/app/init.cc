@@ -97,8 +97,7 @@ void* pgThread2(void* ctx) {
 void* portalInvoke(void* ctx) { //!
   size_t worker = (size_t)ctx;
   MLOG_INFO(mlog::app, "playground:", "Portal invoke example", worker);
-  mythos::Example example(capAlloc());
-  // mythos::Fibonacci example(capAlloc());  //! Test with identical Fibonacci class
+  mythos::Fibonacci example(capAlloc());  //! Test with identical Fibonacci class
   mythos::Portal portal(portals[worker], invocationBuffers[worker]);
   mythos::PortalLock pl(portal);
 

@@ -5,16 +5,16 @@ if echo $@ | grep -qP '\B\-\w*h|\-\-help'; then #options '-*h' and '--help'
   #[ $1 = "-h" ] || [ $1 = "--help" ]; then
   echo "Usage: ./qemu-boot.sh [OPTIONS] [path/to/log]"
   echo -e "COMPILE OPTIONS:\n  -h, --help\tprint this guide\n  -k\t\tremake entire kernel (only)\n  -m\t\tremake (quiet)\n  -r\t\trebuild only (not quiet)"
-  echo -e "FILTER OPTIONS: filter console output\n  -p\t\tfor playground\n  -a\t\tfor app messages\n  -e\t\tfor ec messages"
+  echo -e "FILTER OPTIONS: filter console output\n  -p\t\tfor playground\n  -a\t\tfor app messages\n  -e\t\tfor ec messages\n  -f\t\tfor FibonacciObj messages"
   echo -e "RUN OPTIONS:\n  -d\t\trun in DEBUG mode, creating a gdbserver at localhost:1234 and halt at boot"
   echo "Paths must start with either .|..|/ or a word character (alphanumeric + '_')"
   echo -e "WARNING:\n  Do not use more than two options with one '-' (like '-mrp'), this will be detected as a path!"
   exit 0
 elif echo $@ | grep -qP '\B\-\w*k'; then #option '-*k' remake kernel
   echo "Remaking kernel..."
-  make >-
+  make > /dev/null
   cd ./kernel-amd64
-  make clean >-
+  make clean > /dev/null
   cd ..
 fi
 if echo $@ | grep -qP '\B\-\w*r'; then #option '-*r' rebuild only
@@ -48,8 +48,11 @@ fi
 if echo $@ | grep -qP '\B\-\w*e'; then #option '-*e' filter output for "*ec *"
   pattern3=".*ec\s.*"
 fi
-if [[ $pattern1 || $pattern2 || $pattern3 ]]; then
-  pattern="${pattern1:=\0}|${pattern2:=\0}|${pattern3:=\0}"
+if echo $@ | grep -qP '\B\-\w*f'; then #option '-*f' filter output for "*FibonacciObj *"
+  pattern4=".*FibonacciObj\s.*"
+fi
+if [[ $pattern1 || $pattern2 || $pattern3 || $pattern4 ]]; then
+  pattern="${pattern1:=\0}|${pattern2:=\0}|${pattern3:=\0}|${pattern4:=\0}"
 else
   pattern="(.|\n)*"
 fi
@@ -58,8 +61,13 @@ fi
 if echo $@ | grep -qP '\B\-\w*d'; then #option '-*d' start in debug mode (gdb server and halt on start)
   echo "Starting in DEBUG mode!"
   echo "gdbserver at localhost:1234 halted"
-  trap "kill 0" EXIT
-  gdbgui &
+  # trap "kill 0" EXIT
+  if ! pgrep -x "gdbgui" > /dev/null
+  then
+    cd ./kernel-amd64
+    gdbgui &
+    cd ..
+  fi
   echo "gdbgui at localhost:5000 started"
 
   #call with ./kernel-amd64/boot32.elf

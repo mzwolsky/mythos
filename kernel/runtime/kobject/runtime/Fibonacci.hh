@@ -29,7 +29,7 @@
 #include "mythos/protocol/Fibonacci.hh"
 #include "runtime/KernelMemory.hh"
 #include "mythos/init.hh"
-#include "app/mlog.hh"  //debug
+// #include "app/mlog.hh"  //debug
 
 namespace mythos {
 
@@ -39,12 +39,12 @@ namespace mythos {
     Fibonacci(CapPtr cap) : KObject(cap) {}
 
     PortalFuture<void> create(PortalLock pr, KernelMemory kmem,
-                              CapPtr factory = init::EXAMPLE_FACTORY) {
+                              CapPtr factory = init::FIB_FACTORY) {
       return pr.invoke<protocol::Fibonacci::Create>(kmem.cap(), _cap, factory);
     }
 
     PortalFuture<void> printMessage(PortalLock pr, char const* str, size_t bytes) {
-      MLOG_INFO(mlog::app, "playground:", "FibonacciRT", str, bytes); //debug
+      // MLOG_INFO(mlog::app, "playground:", "FibonacciRT"); //debug
       return pr.invoke<protocol::Fibonacci::PrintMessage>(_cap, str, bytes);
     }
   };
