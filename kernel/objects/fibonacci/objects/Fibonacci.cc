@@ -38,18 +38,18 @@
 
 namespace mythos {
 
-  static mlog::Logger<mlog::FilterAny> mlogex("FibonacciObj");
+  static mlog::Logger<mlog::FilterAny> mlogfi("FibonacciObj");
 
   optional<void const*> FibonacciObj::vcast(TypeId id) const
   {
-    mlogex.info("vcast", DVAR(this), DVAR(id.debug()));
+    mlogfi.info("vcast", DVAR(this), DVAR(id.debug()));
     if (id == typeId<FibonacciObj>()) return /*static_cast<FibonacciObj const*>*/(this);
     THROW(Error::TYPE_MISMATCH);
   }
 
   optional<void> FibonacciObj::deleteCap(Cap self, IDeleter& del)
   {
-    mlogex.info("deleteCap", DVAR(this), DVAR(self), DVAR(self.isOriginal()));
+    mlogfi.info("deleteCap", DVAR(this), DVAR(self), DVAR(self.isOriginal()));
     if (self.isOriginal()) {
       del.deleteObject(del_handle);
     }
@@ -58,7 +58,7 @@ namespace mythos {
 
   void FibonacciObj::deleteObject(Tasklet* t, IResult<void>* r)
   {
-    mlogex.info("deleteObject", DVAR(this), DVAR(t), DVAR(r));
+    mlogfi.info("deleteObject", DVAR(this), DVAR(t), DVAR(r));
     monitor.doDelete(t, [=](Tasklet* t){
       _mem->free(t, r, this, sizeof(FibonacciObj));
     });
@@ -76,7 +76,6 @@ namespace mythos {
           err = protocol::Fibonacci::dispatchRequest(this, msg->getMethod(), t, self, msg);
           break;
         }
-        MLOG_INFO(mlog::app, "playground:", "FibonacciObj:invoke", err, msg->getMessage());
         if (err != Error::INHIBIT) {
           msg->replyResponse(err);
           monitor.requestDone();
@@ -86,16 +85,15 @@ namespace mythos {
 
   Error FibonacciObj::getDebugInfo(Cap self, IInvocation* msg)
   {
-    mlogex.info("invoke getDebugInfo", DVAR(this), DVAR(self), DVAR(msg));
+    mlogfi.info("invoke getDebugInfo", DVAR(this), DVAR(self), DVAR(msg));
     return writeDebugInfo("FibonacciObj", self, msg);
   }
 
   Error FibonacciObj::printMessage(Tasklet*, Cap self, IInvocation* msg)
   {
-    MLOG_INFO(mlog::app, "playground:", "FibonacciObj:print", msg->getMessage());
-    mlogex.info("invoke printMessage", DVAR(this), DVAR(self), DVAR(msg));
+    mlogfi.info("invoke printMessage", DVAR(this), DVAR(self), DVAR(msg));
     auto data = msg->getMessage()->cast<protocol::Fibonacci::PrintMessage>();
-    mlogex.error(mlog::DebugString(data->message, data->bytes));
+    mlogfi.error(mlog::DebugString(data->message, data->bytes));
     return Error::SUCCESS;
   }
 
