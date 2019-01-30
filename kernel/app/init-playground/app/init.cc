@@ -41,7 +41,7 @@
 #include <cstdint>
 #include "util/optional.hh"
 
-#define PARALLEL_ECS 3 // must be > 2
+#define PARALLEL_ECS 13 // must be > 2, < 100
 
 mythos::InvocationBuf* msg_ptr asm("msg_ptr");
 int main() asm("main");
@@ -94,10 +94,10 @@ void* pgThread2(void* ctx) {
 //   return 0;
 // }
 
-void* portalInvoke(void* ctx) { //!
+void* portalInvoke(void* ctx) {
   size_t worker = (size_t)ctx;
   MLOG_INFO(mlog::app, "playground:", "Portal invoke example", worker);
-  mythos::Fibonacci example(capAlloc());  //! Test with identical Fibonacci class
+  mythos::Fibonacci example(capAlloc());
   mythos::Portal portal(portals[worker], invocationBuffers[worker]);
   mythos::PortalLock pl(portal);
 
@@ -108,10 +108,24 @@ void* portalInvoke(void* ctx) { //!
   }
   MLOG_INFO(mlog::app, "playground:", "Example created", worker);
 
-  // char* msg = "playground: Hello example " + (char)worker;
-  // auto res2 = example.printMessage(pl, msg, strlen(msg)-1).wait();
-  char msg[] = "playground: Hello example!";
-  auto res2 = example.printMessage(pl, msg, sizeof(msg)-1).wait();
+  const char* message = "playground: Hello example ";
+  char msg[strlen(message)+2+1];  //max 2 digits for worker ID
+  memcpy(msg, message, strlen(message));
+
+  //convert worker ID to string
+  static char dig[] = "0123456789";
+  size_t i = strlen(message);
+  if (worker > 9) {
+    msg[i++] = dig[worker/10];
+  }
+  msg[i++] = dig[worker%10];
+  // for large numbers but digits reversed
+  // do {
+  //   msg[i++] = dig[worker%10];
+  //   worker /= 10;
+  // } while(worker);
+
+  auto res2 = example.printMessage(pl, msg, strlen(msg)).wait();
   if (!res2) {
     // mythos::Error err = static_cast<mythos::Error>(res2);
     MLOG_ERROR(mlog::app, "playground:", "Portal invoke failed:", res2);
